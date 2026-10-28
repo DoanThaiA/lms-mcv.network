@@ -1,0 +1,43 @@
+# lms_mcv (API + giao diện web) — dùng chung database `project_manager` (user pm_user) trên PostgreSQL của ai_carbon_analyst.
+# Migration project_manager (tới revision 0008) phải chạy trước: container project_manager_api tự làm khi khởi động.
+# API LMS tự chạy alembic upgrade head (bảng lms_*, phiên bản ở alembic_version_lms). Cấu hình trong .env.
+services:
+  api:
+    build: ./backend
+    container_name: lms_mcv_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://pm_user:${PM_DB_PASSWORD:?Thiếu PM_DB_PASSWORD trong .env}@${PM_DB_HOST:-carbon_analyst_db}:5432/project_manager
+      SECRET_KEY: ${LMS_SECRET_KEY:?Thiếu LMS_SECRET_KEY trong .env}
+      CORS_ORIGINS: ${LMS_CORS_ORIGINS:-["http://localhost:3001"]}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: ${R2_BUCKET:-lms}
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_KEY_PREFIX: ${R2_KEY_PREFIX:-lms/}
+      FILE_MAX_MB: ${FILE_MAX_MB:-2048}
+      FILE_OFFICE_PREVIEW: ${FILE_OFFICE_PREVIEW:-true}
+    ports:
+      - "${LMS_BIND_ADDR:-0.0.0.0}:${LMS_API_PORT:-8001}:8000"
+    networks:
+      - default
+      - shared-db
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://api:8000
+    container_name: lms_mcv_web
+    restart: unless-stopped
+    ports:
+      - "${LMS_BIND_ADDR:-0.0.0.0}:${LMS_WEB_PORT:-3001}:3000"
+    depends_on:
+      - api
+
+networks:
+  # Mạng docker-compose của ai_carbon_analyst (chứa container PostgreSQL)
+  shared-db:
+    external: true
+    name: ${PM_DB_NETWORK:-ai_carbon_analyst_default}

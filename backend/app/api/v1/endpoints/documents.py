@@ -8,7 +8,7 @@ from app.api.deps import Principal, get_current_principal, require
 from app.api.v1.endpoints.categories import ensure_category
 from app.core.config import settings
 from app.db.session import get_db
-from app.models import Course, Document, Lesson
+from app.models import Course, Document, Lesson, LessonDocument
 from app.models.enums import DocumentVisibility
 from app.schemas.common import Page
 from app.schemas.course import (
@@ -203,13 +203,18 @@ async def delete_document(
     db: AsyncSession = Depends(get_db),
 ):
     doc = await get_document(db, principal, document_id, manage=True)
-    in_use = await db.scalar(
-        select(
-            exists()
-            .where(Lesson.document_id == doc.id)
-            .where(Course.id == Lesson.course_id, Course.deleted_at.is_(None))
+    in_lesson = (
+        select(Lesson.id)
+        .join(Course, Course.id == Lesson.course_id)
+        .where(Course.deleted_at.is_(None))
+        .where(
+            or_(
+                Lesson.document_id == doc.id,
+                Lesson.id.in_(select(LessonDocument.lesson_id).where(LessonDocument.document_id == doc.id)),
+            )
         )
     )
+    in_use = await db.scalar(select(in_lesson.exists()))
     if in_use:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Tài liệu đang được dùng trong bài học")
     doc.deleted_at = func.now()

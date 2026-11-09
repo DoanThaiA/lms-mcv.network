@@ -39,6 +39,19 @@ class LessonType(StrEnum):
     video = "video"
     document = "document"
     link = "link"
+    standard = "standard"  # bài học chuẩn: mục tiêu, video, nội dung, kiểm tra, tài liệu thực hành, nộp bài
+
+
+class LessonKind(StrEnum):  # dạng bài học chuẩn -> điều kiện hoàn thành
+    theory = "theory"  # xem hết video + đọc hết nội dung
+    quiz = "quiz"  # xem hết video + trả lời đạt câu hỏi kiểm tra
+    practice = "practice"  # nộp bài
+
+
+class ReviewStatus(StrEnum):
+    pending = "pending"
+    passed = "passed"
+    failed = "failed"
 
 
 class EnrollmentSource(StrEnum):

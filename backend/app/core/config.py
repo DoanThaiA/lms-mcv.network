@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Xem trước Word / Excel / PowerPoint qua Microsoft Office Online: Microsoft tải file qua link ký tạm.
     # Tắt nếu tài liệu không được phép gửi ra ngoài (khi đó các file này chỉ tải về được).
     file_office_preview: bool = True
+    # Bài nộp của học viên (bài thực hành): file đi qua API nên giới hạn nhỏ; file lớn gửi bằng link
+    submission_max_mb: int = 20
+    submission_max_files: int = 10
 
 
 @lru_cache

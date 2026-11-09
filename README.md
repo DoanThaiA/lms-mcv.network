@@ -124,7 +124,7 @@ nhập mã nhân viên). Menu / nút ẩn hiện theo `permissions` trong `/auth
 | `/my-courses` | Khoá học của tôi theo trạng thái (chưa học / đang học / hoàn thành / quá hạn) |
 | `/courses` | Danh mục khoá học (lưới / bảng), lọc danh mục, trạng thái, hình thức ghi danh; tạo khoá học |
 | `/courses/[id]` | Chi tiết: đăng ký khoá mở, tiến độ; người soạn: sửa, phát hành / lưu trữ / về nháp, xoá, thêm / sửa / xoá / sắp xếp bài, tài liệu tham khảo; tab Học viên: giao khoá học, đổi hạn, huỷ ghi danh, xem tiến độ từng bài |
-| `/courses/[id]/learn/[lessonId]` | Học bài: bài đọc, video (file: nhớ vị trí xem, xem hết tự hoàn thành; YouTube / Vimeo nhúng), tài liệu xem trực tiếp (PDF, ảnh, Office), link; đánh dấu hoàn thành, bài trước / sau |
+| `/courses/[id]/learn/[lessonId]` | Học bài: bài đọc, video (file: nhớ vị trí xem, xem hết tự hoàn thành; YouTube / Vimeo nhúng), tài liệu xem trực tiếp (PDF, ảnh, Office), link; đánh dấu hoàn thành, bài trước / sau. **Bài học chuẩn**: Mục tiêu · Video · Nội dung · Câu hỏi kiểm tra · Tài liệu thực hành · Nộp bài · Hoàn thành (xem mục bên dưới) |
 | `/documents` | Thư viện tài liệu: tìm, lọc, xem trước, tải về; tải lên (kéo thả), sửa, xoá |
 | `/enrollments` | Ghi danh & tiến độ toàn công ty, lọc khoá học / trạng thái / quá hạn (nhận bộ lọc từ URL) |
 | `/reports` | Báo cáo theo khoá học, xuất CSV |
@@ -132,6 +132,29 @@ nhập mã nhân viên). Menu / nút ẩn hiện theo `permissions` trong `/auth
 | `/admin/employees` | Nhân viên: tạo, sửa, vai trò, đặt lại mật khẩu, khoá / mở khoá, gỡ khỏi công ty; quản trị hệ thống chọn công ty và gán tài khoản có sẵn |
 | `/admin/companies` | Doanh nghiệp (quản trị hệ thống) |
 | `/account` | Thông tin tài khoản, đổi mật khẩu |
+
+## Bài học chuẩn
+
+Loại bài mặc định khi "Thêm bài" (`content_type = standard`), bố cục theo mẫu "AI thực chiến – Phòng Kinh doanh":
+
+| Phần | Người soạn nhập | Học viên thấy |
+|---|---|---|
+| 🎯 Mục tiêu | Mỗi dòng một mục tiêu | Khung mục tiêu đầu bài |
+| 🎬 Video | File video trong thư viện hoặc link YouTube / Vimeo / Google Drive, thời lượng (phút) | File: không tua qua phần chưa xem, xem 95% là xong; link nhúng: mở đủ 90% thời lượng |
+| 📖 Nội dung | HTML (dán từ file mẫu hoặc chèn khối: tiêu đề, bảng, **câu lệnh mẫu** `<pre class="prompt">`, lưu ý `<div class="card warn">`…), có xem trước | Nội dung đã lọc (DOMPurify: bỏ script, style, iframe), khối câu lệnh có nút Sao chép |
+| ❓ Câu hỏi kiểm tra | Dạng "Lý thuyết + kiểm tra": câu hỏi trắc nghiệm, đáp án, giải thích, điều kiện đạt (đúng tất cả / tối thiểu N câu) | Chấm trên máy chủ (học viên không nhận đáp án), hiện đúng / sai + giải thích, làm lại được |
+| 📎 Tài liệu thực hành | Chọn nhiều tài liệu trong thư viện | Xem trước / tải về |
+| 📤 Nộp bài | Dạng "Thực hành": bài nộp cần có, tiêu chí đạt, cho phép nộp bằng nội dung | Link và / hoặc file (≤ `SUBMISSION_MAX_MB`, mặc định 20 MB, tối đa 10 file), ghi chú, tự kiểm theo tiêu chí; lịch sử nộp + kết quả chấm |
+| ✅ Hoàn thành | — | Lý thuyết: xem hết video + đọc đến cuối; kiểm tra: xem hết video + trả lời đạt; thực hành: nộp bài là hoàn thành |
+
+Giảng viên xem kết quả kiểm tra, bài nộp và chấm Đạt / Chưa đạt (kèm nhận xét) trong tab Học viên › tiến độ từng người.
+
+**Nhập từ file HTML** (nút "Nhập từ file" trong danh sách bài): chọn file khoá học theo mẫu (khai báo `RESOURCES`,
+`PARTS`, `LESSONS`) → xem trước từng bài theo phần, cảnh báo / lỗi, bỏ chọn bài trùng tên → thêm vào cuối khoá học
+trong một lần (`POST /courses/{id}/lessons/bulk`, lỗi một bài thì không thêm bài nào). Script của file chạy trong
+iframe sandbox (không cùng origin, không đọc được token đăng nhập). Video lấy từ `RESOURCES.videos`; tài liệu thực hành
+tự gắn khi thư viện có file cùng tên (tải tài liệu lên trước khi nhập), file chưa có nhưng có link thì thành danh sách
+link cuối nội dung. Câu hỏi: `passAll` / `passScore` / `mustRight` → đúng tất cả / tối thiểu N câu / câu bắt buộc đúng.
 
 ## Vai trò & quyền
 
@@ -156,9 +179,9 @@ JWT Bearer: `POST /auth/login` với JSON `{"company_code", "employee_code", "pa
 | Tài liệu | `POST /documents/upload-url` + `POST /documents/complete` (tải thẳng lên R2), `GET/POST(multipart) /documents`, `GET/PATCH/DELETE /documents/{id}` (link tải / xem trước ký tạm 1 giờ) |
 | Khoá học | `GET/POST /courses`, `GET/PATCH/DELETE /courses/{id}`, `POST /courses/{id}/status`, `PUT /courses/{id}/documents` |
 | Bài học | `POST /courses/{id}/lessons`, `GET/PATCH/DELETE …/{lid}`, `PUT /courses/{id}/lessons/order` |
-| Ghi danh | `POST /courses/{id}/enrollments` (giao nhiều người), `GET /enrollments`, `GET …/{eid}/progress`, `PATCH/DELETE /enrollments/{eid}` |
+| Ghi danh | `POST /courses/{id}/enrollments` (giao nhiều người), `GET /enrollments`, `GET …/{eid}/progress`, `GET …/{eid}/submissions` (bài nộp), `PATCH/DELETE /enrollments/{eid}`, `PATCH /submissions/{sid}` (chấm đạt / chưa đạt) |
 | Báo cáo | `GET /reports/courses` |
-| Học viên | `GET /me/courses`, `POST /me/courses/{id}/enroll`, `GET /me/courses/{id}/progress`, `POST /me/courses/{id}/lessons/{lid}/progress` |
+| Học viên | `GET /me/courses`, `POST /me/courses/{id}/enroll`, `GET /me/courses/{id}/progress`, `POST /me/courses/{id}/lessons/{lid}/progress`, `POST …/lessons/{lid}/quiz` (chấm câu hỏi kiểm tra), `GET/POST …/lessons/{lid}/submissions` (nộp bài thực hành, multipart) |
 
 ### Quy tắc nghiệp vụ chính
 

@@ -5,8 +5,10 @@ import type {
   EnrollmentSource,
   EnrollmentStatus,
   EnrollMode,
+  LessonKind,
   LessonType,
   LmsRole,
+  ReviewStatus,
   UserStatus,
 } from "./types";
 
@@ -53,10 +55,43 @@ export const ENROLL_MODE: Record<EnrollMode, Meta & { description: string }> = {
 };
 
 export const LESSON_TYPE: Record<LessonType, Meta> = {
+  standard: { label: "Bài học chuẩn", tone: "teal" },
   text: { label: "Bài đọc", tone: "gray" },
   video: { label: "Video", tone: "red" },
   document: { label: "Tài liệu", tone: "blue" },
   link: { label: "Liên kết", tone: "violet" },
+};
+
+export const LESSON_KIND: Record<LessonKind, Meta & { description: string; done: string }> = {
+  theory: {
+    label: "Lý thuyết",
+    tone: "teal",
+    description: "Học viên xem hết video và đọc đến cuối bài",
+    done: "Xem hết video (nếu có) và đọc đến cuối bài, rồi bấm \"Đánh dấu hoàn thành\"",
+  },
+  quiz: {
+    label: "Lý thuyết + kiểm tra",
+    tone: "violet",
+    description: "Xem hết video và trả lời đạt câu hỏi trắc nghiệm",
+    done: "Xem hết video (nếu có) và trả lời đạt câu hỏi kiểm tra",
+  },
+  practice: {
+    label: "Thực hành",
+    tone: "amber",
+    description: "Học viên nộp bài (link / file); giảng viên chấm theo tiêu chí đạt",
+    done: "Nộp bài: gửi link hoặc tải file kết quả lên; giảng viên chấm theo tiêu chí đạt",
+  },
+};
+
+/** Nhãn hiển thị của bài: dạng bài với bài học chuẩn, loại bài với bài khác. */
+export function lessonMeta(l: { content_type: LessonType; lesson_kind: LessonKind | null }): Meta {
+  return l.content_type === "standard" && l.lesson_kind ? LESSON_KIND[l.lesson_kind] : LESSON_TYPE[l.content_type];
+}
+
+export const REVIEW_STATUS: Record<ReviewStatus, Meta> = {
+  pending: { label: "Chờ chấm", tone: "amber" },
+  passed: { label: "Đạt", tone: "green" },
+  failed: { label: "Chưa đạt", tone: "red" },
 };
 
 export const VISIBILITY: Record<DocumentVisibility, Meta & { description: string }> = {

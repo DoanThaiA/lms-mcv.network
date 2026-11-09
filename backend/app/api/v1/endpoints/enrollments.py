@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import Principal, require
 from app.db.session import get_db
-from app.models import Course, Enrollment, LessonProgress, User
-from app.models.enums import CourseStatus, EnrollmentSource, EnrollmentStatus, UserStatus
+from app.models import Course, Enrollment, LessonProgress, LessonSubmission, User
+from app.models.enums import CourseStatus, EnrollmentSource, EnrollmentStatus, ReviewStatus, UserStatus
 from app.schemas.common import Page
 from app.schemas.employee import EmployeeBrief
 from app.schemas.enrollment import (
@@ -20,13 +20,16 @@ from app.schemas.enrollment import (
     EnrollmentDetail,
     EnrollmentUpdate,
     LessonProgressOut,
+    SubmissionOut,
+    SubmissionReview,
 )
 from app.services.common import not_found, unprocessable
-from app.services.learning import enrollment_out, get_course
+from app.services.learning import enrollment_out, get_course, submission_out
 
 router = APIRouter()
 course_router = APIRouter()
 report_router = APIRouter()
+submission_router = APIRouter()
 
 
 async def get_managed_enrollment(db: AsyncSession, principal: Principal, enrollment_id: int) -> Enrollment:
@@ -159,6 +162,48 @@ async def get_enrollment_progress(
     db: AsyncSession = Depends(get_db),
 ):
     return await course_progress(db, await get_managed_enrollment(db, principal, enrollment_id))
+
+
+@router.get(
+    "/{enrollment_id}/submissions",
+    response_model=list[SubmissionOut],
+    summary="Bài nộp (bài thực hành) của một nhân viên, mới nhất trước",
+)
+async def get_enrollment_submissions(
+    enrollment_id: int,
+    lesson_id: int | None = None,
+    principal: Principal = Depends(require("report.view")),
+    db: AsyncSession = Depends(get_db),
+):
+    enrollment = await get_managed_enrollment(db, principal, enrollment_id)
+    stmt = (
+        select(LessonSubmission)
+        .where(LessonSubmission.enrollment_id == enrollment.id)
+        .order_by(LessonSubmission.created_at.desc(), LessonSubmission.id.desc())
+    )
+    if lesson_id is not None:
+        stmt = stmt.where(LessonSubmission.lesson_id == lesson_id)
+    return [submission_out(s) for s in await db.scalars(stmt)]
+
+
+@submission_router.patch("/{submission_id}", response_model=SubmissionOut, summary="Chấm bài nộp: đạt / chưa đạt")
+async def review_submission(
+    submission_id: int,
+    body: SubmissionReview,
+    principal: Principal = Depends(require("enrollment.manage")),
+    db: AsyncSession = Depends(get_db),
+):
+    sub = await db.get(LessonSubmission, submission_id)
+    if sub is None or sub.company_id != principal.company.id:
+        raise not_found("bài nộp")
+    sub.review_status = body.review_status
+    sub.review_note = (body.review_note or "").strip() or None
+    reviewed = body.review_status != ReviewStatus.pending
+    sub.reviewed_by = principal.user.id if reviewed else None
+    sub.reviewed_at = func.now() if reviewed else None
+    await db.commit()
+    await db.refresh(sub)
+    return submission_out(sub)
 
 
 @router.patch("/{enrollment_id}", response_model=CourseProgress, summary="Đổi hạn hoàn thành")

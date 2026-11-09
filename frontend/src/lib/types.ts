@@ -7,7 +7,10 @@ export type UserStatus = "active" | "inactive" | "locked";
 export type CompanyStatus = "active" | "inactive";
 export type CourseStatus = "draft" | "published" | "archived";
 export type EnrollMode = "open" | "assigned";
-export type LessonType = "text" | "video" | "document" | "link";
+export type LessonType = "text" | "video" | "document" | "link" | "standard";
+/** Dạng bài học chuẩn: lý thuyết / lý thuyết + kiểm tra / thực hành (nộp bài) */
+export type LessonKind = "theory" | "quiz" | "practice";
+export type ReviewStatus = "pending" | "passed" | "failed";
 export type DocumentVisibility = "company" | "course";
 export type EnrollmentStatus = "not_started" | "in_progress" | "completed";
 export type EnrollmentSource = "assigned" | "self";
@@ -76,17 +79,54 @@ export type Lesson = {
   course_id: number;
   title: string;
   content_type: LessonType;
+  lesson_kind: LessonKind | null;
   duration_minutes: number | null;
   sort_order: number;
   is_required: boolean;
 };
+
+/** answer / explanation: học viên nhận null (chấm trên máy chủ) */
+export type QuizQuestion = { question: string; options: string[]; answer: number | null; explanation: string | null };
+/** must_correct: vị trí (từ 0) các câu bắt buộc đúng, vd câu bảo mật */
+export type Quiz = { pass_score: number | null; must_correct: number[]; questions: QuizQuestion[] };
+export type Assignment = { requirement: string; criteria: string[]; allow_text: boolean };
 
 export type LessonDetail = Lesson & {
   body: string | null;
   external_url: string | null;
   document_id: number | null;
   document: DocumentDetail | null;
+  goals: string[];
+  video_minutes: number | null;
+  quiz: Quiz | null;
+  assignment: Assignment | null;
+  practice_documents: DocumentDetail[];
 };
+
+export type QuizResult = {
+  score: number;
+  total: number;
+  pass_score: number;
+  passed: boolean;
+  results: { correct: boolean; explanation: string | null }[];
+  progress: CourseProgress;
+};
+
+export type Submission = {
+  id: number;
+  enrollment_id: number;
+  lesson_id: number;
+  link: string | null;
+  note: string | null;
+  files: { file_name: string; size_bytes: number; download_url: string }[];
+  review_status: ReviewStatus;
+  review_note: string | null;
+  reviewed_by: number | null;
+  reviewed_at: string | null;
+  created_at: string;
+};
+
+export type SubmissionResult = { submission: Submission; progress: CourseProgress };
 
 export type Course = {
   id: number;
@@ -135,6 +175,10 @@ export type LessonProgress = {
   started_at: string;
   completed_at: string | null;
   last_position_seconds: number;
+  video_completed_at: string | null;
+  quiz_attempts: number;
+  quiz_score: number | null;
+  quiz_passed_at: string | null;
 };
 
 export type CourseProgress = { enrollment: Enrollment; lessons: LessonProgress[] };

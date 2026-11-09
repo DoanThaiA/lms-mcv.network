@@ -1,17 +1,18 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, CheckCircle2, Circle, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, CheckCircle2, Circle, FileUp, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import { ImportLessonsModal } from "@/components/course/import-lessons";
 import { LessonFormModal } from "@/components/course/lesson-form";
 import { MetaBadge } from "@/components/ui/badge";
 import { Button, IconButton } from "@/components/ui/button";
 import { Card, CardHeader, Empty } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/toast";
 import { api } from "@/lib/api";
-import { LESSON_TYPE } from "@/lib/labels";
+import { lessonMeta } from "@/lib/labels";
 import type { CourseDetail, CourseProgress, Lesson } from "@/lib/types";
 import { cn, fmtMinutes } from "@/lib/utils";
 
@@ -30,6 +31,7 @@ export function LessonsPanel({
   const qc = useQueryClient();
   const toast = useToast();
   const [editing, setEditing] = useState<number | "new" | null>(null);
+  const [importing, setImporting] = useState(false);
   const done = new Set((progress?.lessons ?? []).filter((p) => p.completed_at).map((p) => p.lesson_id));
   const lessons = course.lessons;
 
@@ -71,9 +73,14 @@ export function LessonsPanel({
         }
         action={
           manage && (
-            <Button size="sm" variant="primary" icon={<Plus className="size-4" />} onClick={() => setEditing("new")}>
-              Thêm bài
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" icon={<FileUp className="size-4" />} onClick={() => setImporting(true)}>
+                Nhập từ file
+              </Button>
+              <Button size="sm" variant="primary" icon={<Plus className="size-4" />} onClick={() => setEditing("new")}>
+                Thêm bài
+              </Button>
+            </div>
           )
         }
       />
@@ -108,7 +115,7 @@ export function LessonsPanel({
                     <span className="block truncate">{title}</span>
                   )}
                   <span className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-ink-3">
-                    <MetaBadge meta={LESSON_TYPE[l.content_type]} dot={false} />
+                    <MetaBadge meta={lessonMeta(l)} dot={false} />
                     {l.duration_minutes ? fmtMinutes(l.duration_minutes) : null}
                     {!l.is_required && <span>Không bắt buộc</span>}
                   </span>
@@ -144,6 +151,7 @@ export function LessonsPanel({
           })}
         </ol>
       )}
+      {importing && <ImportLessonsModal course={course} onClose={() => setImporting(false)} />}
       {editing !== null && (
         <LessonFormModal
           courseId={course.id}

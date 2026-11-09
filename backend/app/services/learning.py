@@ -6,10 +6,10 @@ from sqlalchemy import exists, or_, select, text, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import Principal
-from app.models import Course, CourseDocument, Document, Enrollment, Lesson
+from app.models import Course, CourseDocument, Document, Enrollment, Lesson, LessonDocument, LessonSubmission
 from app.models.enums import CourseStatus, DocumentVisibility, EnrollmentStatus, EnrollMode
 from app.schemas.course import DocumentDetail, DocumentOut
-from app.schemas.enrollment import EnrollmentOut
+from app.schemas.enrollment import EnrollmentOut, SubmissionFile, SubmissionOut
 from app.services import file_storage
 from app.services.common import not_found
 
@@ -61,6 +61,9 @@ def visible_document_filter(principal: Principal):
         union(
             select(CourseDocument.document_id).where(CourseDocument.course_id.in_(course_ids)),
             select(Lesson.document_id).where(Lesson.course_id.in_(course_ids), Lesson.document_id.is_not(None)),
+            select(LessonDocument.document_id)
+            .join(Lesson, Lesson.id == LessonDocument.lesson_id)
+            .where(Lesson.course_id.in_(course_ids)),
         )
     )
     return or_(Document.visibility == DocumentVisibility.company, used_in_my_courses)
@@ -85,6 +88,30 @@ def document_detail(doc: Document) -> DocumentDetail:
         download_url=file_storage.download_url(doc.storage_key, doc.file_name),
         preview_kind=kind,
         preview_url=file_storage.preview_url(doc.storage_key, doc.file_name, kind) if kind else None,
+    )
+
+
+def submission_out(sub: LessonSubmission) -> SubmissionOut:
+    """Bài nộp kèm link tải file ký tạm (hết hạn sau 1 giờ)."""
+    return SubmissionOut(
+        id=sub.id,
+        enrollment_id=sub.enrollment_id,
+        lesson_id=sub.lesson_id,
+        link=sub.link,
+        note=sub.note,
+        files=[
+            SubmissionFile(
+                file_name=f["file_name"],
+                size_bytes=f["size_bytes"],
+                download_url=file_storage.download_url(f["storage_key"], f["file_name"]),
+            )
+            for f in sub.files or []
+        ],
+        review_status=sub.review_status,
+        review_note=sub.review_note,
+        reviewed_by=sub.reviewed_by,
+        reviewed_at=sub.reviewed_at,
+        created_at=sub.created_at,
     )
 
 

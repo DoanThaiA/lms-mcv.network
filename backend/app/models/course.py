@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import (
     BigInteger,
@@ -14,7 +15,7 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import CITEXT
+from sqlalchemy.dialects.postgresql import CITEXT, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, SoftDeleteMixin, TimestampMixin, str_enum
@@ -24,7 +25,9 @@ from app.models.enums import (
     EnrollmentSource,
     EnrollmentStatus,
     EnrollMode,
+    LessonKind,
     LessonType,
+    ReviewStatus,
 )
 
 # FK kép (company_id, ...) và ON DELETE nằm trong migrations/sql/0001_lms_schema.sql; model chỉ khai báo FK đơn
@@ -85,12 +88,29 @@ class Lesson(TimestampMixin, Base):
     course_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("lms_courses.id"))
     title: Mapped[str] = mapped_column(String(255))
     content_type: Mapped[LessonType] = mapped_column(str_enum(LessonType, 10))
+    lesson_kind: Mapped[LessonKind | None] = mapped_column(str_enum(LessonKind, 10))
     body: Mapped[str | None] = mapped_column(Text)
     external_url: Mapped[str | None] = mapped_column(String(1000))
     document_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("lms_documents.id"))
     duration_minutes: Mapped[int | None] = mapped_column(Integer)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_required: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Bài học chuẩn (content_type = standard); body là nội dung HTML, video = document_id / external_url
+    goals: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    video_minutes: Mapped[int | None] = mapped_column(Integer)
+    quiz: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    assignment: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+
+class LessonDocument(Base):
+    """Tài liệu thực hành của bài học."""
+
+    __tablename__ = "lms_lesson_documents"
+
+    company_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("companies.id"))
+    lesson_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("lms_lessons.id"), primary_key=True)
+    document_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("lms_documents.id"), primary_key=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class CourseDocument(Base):
@@ -130,6 +150,29 @@ class LessonProgress(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_position_seconds: Mapped[int] = mapped_column(Integer, default=0)
+    video_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    quiz_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    quiz_score: Mapped[int | None] = mapped_column(Integer)
+    quiz_passed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), server_onupdate=FetchedValue()
     )
+
+
+class LessonSubmission(TimestampMixin, Base):
+    """Bài nộp của bài thực hành."""
+
+    __tablename__ = "lms_lesson_submissions"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    company_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("companies.id"))
+    enrollment_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("lms_enrollments.id"))
+    course_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("lms_courses.id"))
+    lesson_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("lms_lessons.id"))
+    link: Mapped[str | None] = mapped_column(String(1000))
+    note: Mapped[str | None] = mapped_column(Text)
+    files: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
+    review_status: Mapped[ReviewStatus] = mapped_column(str_enum(ReviewStatus, 10), default=ReviewStatus.pending)
+    review_note: Mapped[str | None] = mapped_column(Text)
+    reviewed_by: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -65,7 +65,7 @@ export function documentPreview(doc: DocumentDetail): PreviewFile | null {
   return { name: doc.file_name, url: doc.download_url, previewKind: doc.preview_kind, previewUrl: doc.preview_url };
 }
 
-/** URL nhúng cho video YouTube / Vimeo; null nếu là link khác. */
+/** URL nhúng cho video YouTube / Vimeo / Google Drive; null nếu là link khác. */
 export function embedVideoUrl(url: string): string | null {
   try {
     const u = new URL(url);
@@ -74,6 +74,10 @@ export function embedVideoUrl(url: string): string | null {
     if (host === "youtube.com") {
       const id = u.searchParams.get("v") ?? u.pathname.match(/^\/(?:embed|shorts)\/([^/]+)/)?.[1];
       return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+    if (host === "drive.google.com") {
+      const id = u.pathname.match(/^\/file\/d\/([^/]+)/)?.[1];
+      return id ? `https://drive.google.com/file/d/${id}/preview` : null;
     }
     if (host === "vimeo.com") {
       const id = u.pathname.match(/^\/(\d+)/)?.[1];

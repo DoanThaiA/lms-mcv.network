@@ -58,3 +58,145 @@ body {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* Nội dung HTML của bài học chuẩn (RichContent) — bố cục theo mẫu "AI thực chiến" */
+.lesson-html {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+.lesson-html > :first-child {
+  margin-top: 0;
+}
+.lesson-html h2 {
+  margin: 1.6em 0 0.5em;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-brand-hover);
+}
+.lesson-html h3 {
+  margin: 1.3em 0 0.4em;
+  font-size: 16px;
+  font-weight: 600;
+}
+.lesson-html p,
+.lesson-html ul,
+.lesson-html ol {
+  margin: 0.6em 0;
+}
+.lesson-html ul {
+  list-style: disc;
+  padding-left: 1.4em;
+}
+.lesson-html ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+}
+.lesson-html li {
+  margin: 0.2em 0;
+}
+.lesson-html a {
+  color: var(--color-brand);
+  text-decoration: underline;
+}
+.lesson-html b,
+.lesson-html strong {
+  font-weight: 600;
+}
+.lesson-html code {
+  border-radius: 4px;
+  background: var(--color-subtle);
+  padding: 1px 5px;
+  font-size: 0.92em;
+}
+.lesson-html .table-wrap {
+  margin: 0.8em 0;
+  overflow-x: auto;
+}
+.lesson-html table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.lesson-html th,
+.lesson-html td {
+  border: 1px solid var(--color-line);
+  padding: 7px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.lesson-html th {
+  background: var(--color-subtle);
+  font-weight: 600;
+}
+.lesson-html .prompt-wrap {
+  position: relative;
+  margin: 0.8em 0;
+}
+.lesson-html pre.prompt,
+.lesson-html pre {
+  margin: 0;
+  border-radius: 8px;
+  background: #0f2236;
+  color: #e6eef6;
+  padding: 14px 16px;
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.lesson-html pre.prompt {
+  padding-right: 90px;
+}
+.lesson-html .copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.12);
+  padding: 2px 9px;
+  font-size: 12px;
+  color: #fff;
+}
+.lesson-html .copy-btn:hover {
+  background: rgb(255 255 255 / 0.22);
+}
+.lesson-html .card {
+  margin: 0.9em 0;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  padding: 12px 16px;
+}
+.lesson-html .card.warn {
+  border-color: #f2d29b;
+  background: #fff4e0;
+}
+.lesson-html .card.rule {
+  background: #fafbfd;
+}
+.lesson-html .hint {
+  font-size: 13px;
+  color: var(--color-ink-3);
+}
+.lesson-html .light-pill {
+  display: inline-block;
+  border-radius: 99px;
+  padding: 0 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.lesson-html .lp-r {
+  background: #fdecec;
+  color: #c62828;
+}
+.lesson-html .lp-y {
+  background: #fff4e0;
+  color: #8a5300;
+}
+.lesson-html .lp-g {
+  background: #e8f5e9;
+  color: #2e7d32;
+}

@@ -25,5 +25,6 @@ api_router.include_router(
     enrollments.course_router, prefix="/courses/{course_id}/enrollments", tags=["Ghi danh & tiến độ"]
 )
 api_router.include_router(enrollments.router, prefix="/enrollments", tags=["Ghi danh & tiến độ"])
+api_router.include_router(enrollments.submission_router, prefix="/submissions", tags=["Ghi danh & tiến độ"])
 api_router.include_router(enrollments.report_router, prefix="/reports", tags=["Báo cáo"])
 api_router.include_router(me.router, prefix="/me", tags=["Học viên"])

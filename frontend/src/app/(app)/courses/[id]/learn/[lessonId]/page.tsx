@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 import { embedVideoUrl } from "@/components/file-preview";
+import { type ProgressBody, StandardLesson } from "@/components/lesson/standard-lesson";
 import { MetaBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, Empty, ProgressBar, Spinner } from "@/components/ui/misc";
@@ -14,13 +15,13 @@ import { useToast } from "@/components/ui/toast";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useCourse, useMyProgress, useNumberParam } from "@/lib/hooks";
-import { LESSON_TYPE } from "@/lib/labels";
+import { lessonMeta } from "@/lib/labels";
 import type { CourseProgress, DocumentDetail, LessonDetail } from "@/lib/types";
 import { cn, fmtBytes, fmtMinutes, fmtPercent, num } from "@/lib/utils";
 
 const officeViewer = (url: string) => `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
 
-type Report = (body: { completed?: boolean; position_seconds?: number }) => void;
+type Report = (body: ProgressBody) => void;
 
 /** Video trong thư viện: mở lại đúng vị trí đã xem, lưu vị trí mỗi 15 giây / khi dừng, xem hết thì hoàn thành. */
 function FileVideo({ doc, startAt, report }: { doc: DocumentDetail; startAt: number; report?: Report }) {
@@ -119,6 +120,8 @@ function LessonContent({ lesson, startAt, report }: { lesson: LessonDetail; star
       return doc ? <DocumentView doc={doc} /> : <Empty title="Tài liệu đã bị xoá khỏi thư viện" />;
     case "link":
       return url ? <ExternalCard url={url} /> : null;
+    case "standard":
+      return null; // StandardLesson
   }
 }
 
@@ -153,7 +156,7 @@ export default function LearnPage() {
 
   const enrolled = !!progress.data;
   const record = useMutation({
-    mutationFn: async (body: { completed?: boolean; position_seconds?: number }) =>
+    mutationFn: async (body: ProgressBody) =>
       (await api.post<CourseProgress>(`/me/courses/${courseId}/lessons/${lessonId}/progress`, body)).data,
     onSuccess: (data, body) => {
       const wasCompleted = progress.data?.enrollment.status === "completed";
@@ -165,7 +168,13 @@ export default function LearnPage() {
     },
     onError: toast.error,
   });
-  const report = enrolled ? (body: Parameters<Report>[0]) => record.mutate(body) : undefined;
+  const report = enrolled ? (body: ProgressBody) => record.mutate(body) : undefined;
+  const setProgress = (data: CourseProgress) => {
+    const wasCompleted = progress.data?.enrollment.status === "completed";
+    qc.setQueryData(["my-progress", courseId], data);
+    qc.invalidateQueries({ queryKey: ["my-courses"] });
+    if (data.enrollment.status === "completed" && !wasCompleted) toast.success("Chúc mừng! Bạn đã hoàn thành khoá học");
+  };
 
   // Mở bài = bắt đầu học (ghi nhận một lần cho mỗi bài)
   const touched = useRef<number | null>(null);
@@ -200,6 +209,9 @@ export default function LearnPage() {
   const completed = !!byLesson.get(l.id)?.completed_at;
   const enrollment = progress.data?.enrollment;
   const go = (id: number) => router.push(`/courses/${courseId}/learn/${id}`);
+  const standard = l.content_type === "standard";
+  // Bài học chuẩn tự kiểm điều kiện hoàn thành; bài video hoàn thành khi xem hết
+  const autoComplete = enrolled && !completed && !standard && l.content_type !== "video";
 
   return (
     <>
@@ -222,7 +234,7 @@ export default function LearnPage() {
               </p>
               <h1 className="text-lg font-semibold">{l.title}</h1>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-3">
-                <MetaBadge meta={LESSON_TYPE[l.content_type]} dot={false} />
+                <MetaBadge meta={lessonMeta(l)} dot={false} />
                 {l.duration_minutes ? fmtMinutes(l.duration_minutes) : null}
                 {!l.is_required && <span>Không bắt buộc</span>}
               </div>
@@ -232,7 +244,7 @@ export default function LearnPage() {
                 <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-emerald-700">
                   <CheckCircle2 className="size-4" /> Đã hoàn thành
                 </span>
-              ) : (
+              ) : standard ? null : (
                 <Button
                   variant="primary"
                   icon={<CheckCircle2 className="size-4" />}
@@ -245,12 +257,25 @@ export default function LearnPage() {
           </div>
 
           <div className="px-5 py-5">
-            <LessonContent
-              lesson={l}
-              startAt={byLesson.get(l.id)?.last_position_seconds ?? 0}
-              report={report}
-            />
-            {l.content_type !== "text" && l.body && (
+            {standard ? (
+              <StandardLesson
+                key={l.id}
+                courseId={courseId}
+                lesson={l}
+                progress={byLesson.get(l.id)}
+                enrolled={enrolled}
+                report={report}
+                completing={record.isPending && !!record.variables?.completed}
+                onProgress={setProgress}
+              />
+            ) : (
+              <LessonContent
+                lesson={l}
+                startAt={byLesson.get(l.id)?.last_position_seconds ?? 0}
+                report={report}
+              />
+            )}
+            {!standard && l.content_type !== "text" && l.body && (
               <div className="mt-5 rounded-lg bg-subtle/70 px-4 py-3">
                 <p className="mb-1 text-xs font-medium text-ink-3">Ghi chú</p>
                 <div className="lesson-prose text-ink-2">{l.body}</div>
@@ -266,11 +291,11 @@ export default function LearnPage() {
               <Button
                 variant={completed || !enrolled ? "primary" : "secondary"}
                 onClick={() => {
-                  if (enrolled && !completed && l.content_type !== "video") record.mutate({ completed: true });
+                  if (autoComplete) record.mutate({ completed: true });
                   go(next.id);
                 }}
               >
-                {enrolled && !completed && l.content_type !== "video" ? "Hoàn thành & bài tiếp" : "Bài tiếp"}
+                {autoComplete ? "Hoàn thành & bài tiếp" : "Bài tiếp"}
                 <ChevronRight className="size-4" />
               </Button>
             ) : (

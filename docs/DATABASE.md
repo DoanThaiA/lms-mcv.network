@@ -34,6 +34,10 @@ erDiagram
     users ||--o{ lms_enrollments : ""
     lms_enrollments ||--o{ lms_lesson_progress : "tiến độ bài"
     lms_lessons ||--o{ lms_lesson_progress : ""
+    lms_lessons ||--o{ lms_lesson_documents : "tài liệu thực hành"
+    lms_documents ||--o{ lms_lesson_documents : ""
+    lms_enrollments ||--o{ lms_lesson_submissions : "bài nộp"
+    lms_lessons ||--o{ lms_lesson_submissions : ""
 ```
 
 ## 3. Danh sách bảng LMS
@@ -44,10 +48,12 @@ erDiagram
 | `lms_categories` | Danh mục cho khoá học và tài liệu, tên duy nhất trong công ty |
 | `lms_documents` | Thư viện tài liệu, file trên Cloudflare R2 (`storage_key`). `visibility`: `company` (mọi nhân viên) / `course` (chỉ học viên khoá học có dùng). Xoá mềm |
 | `lms_courses` | Khoá học: `code` duy nhất trong công ty, `status` draft → published ↔ archived, `enroll_mode` `open` (tự đăng ký) / `assigned` (chỉ người được giao). Xoá mềm |
-| `lms_lessons` | Bài học: `content_type` text / video (file hoặc link) / document / link; `sort_order`; `is_required` |
+| `lms_lessons` | Bài học: `content_type` text / video (file hoặc link) / document / link / **standard**; `sort_order`; `is_required`. Bài `standard` (bài học chuẩn, revision 0002): `lesson_kind` theory / quiz / practice, `goals` (jsonb), video = `document_id` / `external_url` + `video_minutes`, nội dung HTML trong `body`, `quiz` (jsonb, có đáp án — API ẩn đáp án với học viên), `assignment` (jsonb: yêu cầu, tiêu chí đạt) |
+| `lms_lesson_documents` | Tài liệu thực hành của bài học chuẩn (thứ tự `sort_order`); học viên khoá học xem được kể cả tài liệu `course` |
+| `lms_lesson_submissions` | Bài nộp của bài thực hành: `link`, `note`, `files` (jsonb: tên, `storage_key` trên R2, dung lượng); giảng viên chấm `review_status` pending / passed / failed + `review_note` |
 | `lms_course_documents` | Tài liệu tham khảo của khoá học |
 | `lms_enrollments` | Ghi danh: `source` assigned/self, `due_date`, `status` not_started → in_progress → completed, `progress_percent` |
-| `lms_lesson_progress` | Tiến độ từng bài: `last_position_seconds` (video), `completed_at` |
+| `lms_lesson_progress` | Tiến độ từng bài: `last_position_seconds` (vị trí video file; số giây đã mở video nhúng ở bài chuẩn), `video_completed_at`, `quiz_attempts` / `quiz_score` (cao nhất) / `quiz_passed_at`, `completed_at` |
 
 ## 4. Toàn vẹn dữ liệu
 
@@ -58,12 +64,15 @@ erDiagram
 - Chuyển nhân viên sang công ty khác bị chặn khi còn ghi danh (API "gỡ nhân viên" xoá ghi danh trước).
 - **Tiến độ**: % bài bắt buộc đã hoàn thành (khoá không có bài bắt buộc thì tính mọi bài); tính lại khi học viên học
   bài, khi thêm / xoá bài hoặc đổi `is_required`. Ghi danh đã `completed` giữ nguyên kể cả khi khoá học thêm bài.
+- **Bài học chuẩn** chỉ hoàn thành khi đủ điều kiện (API kiểm tra, trả 409 nếu thiếu): lý thuyết = đã xem hết video
+  (nếu có); kiểm tra = xem hết video + `quiz_passed_at`; thực hành = có bài nộp (nộp bài tự đánh dấu hoàn thành).
+  "Đọc đến cuối nội dung" chỉ kiểm tra trên trình duyệt.
 - **Audit**: trigger `fn_audit_log()` của project_manager trên `lms_user_roles`, `lms_categories`, `lms_documents`,
   `lms_courses`, `lms_lessons`, `lms_enrollments` (không audit `lms_lesson_progress` vì ghi rất thường xuyên).
   `updated_at` tự cập nhật bằng `fn_set_updated_at()`.
 
 ## 5. Hướng mở rộng
 
-- Bài kiểm tra / câu hỏi trắc nghiệm (`lms_quizzes`, `lms_questions`, `lms_quiz_attempts`), điểm đạt để hoàn thành khoá.
+- Ngân hàng câu hỏi dùng chung (`lms_questions`), lưu từng lần làm bài (`lms_quiz_attempts`), điểm đạt để hoàn thành khoá.
 - Chứng chỉ hoàn thành (`lms_certificates`), lộ trình học (`lms_learning_paths`).
 - Phòng ban / chức danh để giao khoá học theo nhóm.
